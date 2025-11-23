@@ -19,7 +19,7 @@ export function TradingChart({ selectedCoinId }: TradingChartProps) {
         <AdvancedRealTimeChart symbol={currentSymbol}
             theme="dark" autosize allow_symbol_change={true}
             hotlist={true}
-            
+            timezone="Asia/Ho_Chi_Minh"
             details={true} />
     )
 }
