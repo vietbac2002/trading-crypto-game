@@ -1,35 +1,94 @@
-"use client"
 
-import { useGame } from "@/contexts/GameContext"
+
+"use client"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Badge } from "@/components/ui/badge"
 import { Clock, Users, Copy, Play } from "lucide-react"
-import { useState } from "react"
+import { useEffect, useState } from "react"
+import { createClient } from "@/lib/supabase/client"
+import { usePathname } from "next/navigation"
+
+export type Room = {
+   id: number
+   status: string
+   start_time: string
+   end_time: string | null
+   duration_times: number
+ }
+
+type Member = {
+  id: number
+  playerName: string
+  currentBalance: number
+  avatarUrl: string
+}
 
 export default function Queue() {
-  const { gameState, startGame, setMatchDuration } = useGame()
+  // const { gameState, startGame, setMatchDuration } = useGame()
   const [copied, setCopied] = useState(false)
+  const roomId = usePathname().split("/").pop() || "";
+  const [room, setRoom] = useState<Room>();
+  const [members, setMembers] = useState<Member[]>();
 
-  const copyRoomCode = () => {
-    if (gameState.roomCode) {
-      navigator.clipboard.writeText(gameState.roomCode)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-    }
+
+
+  const getRoom = async () => {
+    const supabase = createClient()
+    await supabase
+      .from('rooms')
+      .select('*')
+      .eq('id', roomId)
+      .then(({ data, error }) => {
+        if (error) {
+          console.error('Error fetching room:', error)
+        } else {
+          console.log('Room data:', data)
+          setRoom(data[0])
+        }
+      })
   }
+
+  const getMembers = async () => {
+    try {
+      const supabase = createClient();
+      const { data, error } = await supabase
+        .from('room_members')
+        .select('*')
+        .eq('room_id', roomId);
+      if (error) {
+        console.error('Error fetching members:', error);
+        return;
+      }
+      setMembers(data);
+    } catch (error) {
+      console.error('Error fetching members:', error);
+    }
+
+
+  }
+
+
 
   const durations = [
     { label: "Standard (30m)", value: 60 * 30 },
-    {label: "Extended (1h)", value: 60 * 60 },
+    { label: "Extended (1h)", value: 60 * 60 },
   ]
 
+  useEffect(() => {
+    getRoom()
+    getMembers()
+  }, [roomId])
+
+  console.log("room members",members  )
+
+  console.log("room data:", roomId);
   return (
     <div className="flex flex-col items-center justify-center min-h-[80vh] space-y-8 p-4 max-w-5xl mx-auto w-full">
       <div className="text-center space-y-2">
         <h1 className="text-4xl tracking-tighter text-white uppercase">
-          Lobby <span className="text-white">#{gameState.roomCode}</span>
+          Lobby <span className="text-white">#{room?.id || ""}</span>
         </h1>
         <p className="text-slate-white">Waiting for players to join...</p>
       </div>
@@ -45,20 +104,20 @@ export default function Queue() {
           </CardHeader>
           <CardContent className="space-y-6">
             <div className="space-y-2">
-              <label className="text-sm font-medium text-slate-400">Room Code</label>
-              <div className="flex gap-2">
+              <label className="text-sm font-medium text-slate-400">Room Code : {room?.id || ""}</label>
+              {/* <div className="flex gap-2">
                 <div className="flex-1 border rounded-md px-3 py-2">
-                  <span className="text-white text-center">{gameState.roomCode}</span>
+                  <span className="text-white text-center">{room?.code || ""}</span>
                 </div>
                 <Button
                   variant="outline"
                   size="icon"
-                  onClick={copyRoomCode}
+                  // onClick={copyRoomCode}
                   className="border-slate-800 hover:bg-slate-800 bg-transparent"
                 >
                   {copied ? <CheckIcon className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
                 </Button>
-              </div>
+              </div> */}
             </div>
 
             <div className="space-y-3">
@@ -69,13 +128,13 @@ export default function Queue() {
                 {durations.map((d) => (
                   <Button
                     key={d.value}
-                    variant={gameState.roundDuration === d.value ? "default" : "outline"}
-                    onClick={() => setMatchDuration(d.value)}
-                    className={`w-full justify-start ${
-                      gameState.roundDuration === d.value
-                        ? "bg-cyan-500 hover:bg-cyan-600 text-black"
-                        : "border-slate-800 text-slate-400 hover:text-white hover:bg-slate-800"
-                    }`}
+                  // variant={gameState.roundDuration === d.value ? "default" : "outline"}
+                  // onClick={() => setMatchDuration(d.value)}
+                  // className={`w-full justify-start ${
+                  //   gameState.roundDuration === d.value
+                  //     ? "bg-cyan-500 hover:bg-cyan-600 text-black"
+                  //     : "border-slate-800 text-slate-400 hover:text-white hover:bg-slate-800"
+                  // }`}
                   >
                     {d.label}
                   </Button>
@@ -85,7 +144,7 @@ export default function Queue() {
 
             <div className="pt-4">
               <Button
-                onClick={() => startGame()}
+                // onClick={() => startGame()}
                 className="w-full py-6 text-lg font-bold bg-gradient-to-r from-cyan-500 to-purple-500 hover:from-cyan-400 hover:to-purple-400 text-white border-0 shadow-[0_0_20px_rgba(34,211,238,0.3)]"
               >
                 <Play className="w-5 h-5 mr-2 fill-current" /> START MATCH
@@ -102,45 +161,44 @@ export default function Queue() {
               Connected Players
             </CardTitle>
             <Badge variant="outline" className="bg-purple-500/10 text-purple-400 border-purple-500/50">
-              {gameState.players.length} / 8
+              {(members != null && members.length > 0) ? members.length : 0}
             </Badge>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {gameState.players.map((player) => (
+              {members != null && members?.length > 0 && members.map((player) => (
                 <div
                   key={player.id}
-                  className={`flex items-center gap-3 p-3 rounded-lg border transition-all ${
-                    player.id === gameState.player.id
+                  className={`flex items-center gap-3 p-3 rounded-lg border transition-all ${player.id === player.id
                       ? "bg-cyan-500/10 border-cyan-500/50 shadow-[0_0_10px_rgba(34,211,238,0.1)]"
                       : "bg-slate-950/50 border-slate-800"
-                  }`}
+                    }`}
                 >
                   <Avatar className="h-12 w-12 border-2 border-slate-800">
-                    <AvatarImage src={player.avatarUrl || "/placeholder.svg"} />
+                    <AvatarImage src={player?.avatarUrl || "/placeholder.svg"} />
                     <AvatarFallback className="bg-slate-800 text-slate-400">
-                      {player.name.substring(0, 2).toUpperCase()}
+                      {player?.playerName?.substring(0, 2).toUpperCase() || ''}
                     </AvatarFallback>
                   </Avatar>
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
-                      <h3 className={`font-bold ${player.id === gameState.player.id ? "text-cyan-400" : "text-white"}`}>
-                        {player.name}
+                      <h3 className={`font-bold ${player.id === player.id ? "text-cyan-400" : "text-white"}`}>
+                        {player.playerName || ""}
                       </h3>
-                      {player.id === gameState.player.id && (
+                      {player.id === player.id && (
                         <Badge className="h-5 bg-cyan-500/20 text-cyan-400 hover:bg-cyan-500/30 border-0 text-[10px]">
                           YOU
                         </Badge>
                       )}
                     </div>
-                    <p className="text-xs text-slate-500">${player.balance.toLocaleString()} ready</p>
+                    <p className="text-xs text-slate-500">${(player?.currentBalance || 0).toLocaleString()} ready</p>
                   </div>
                   <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
                 </div>
               ))}
 
               {/* Empty Slots */}
-              {Array.from({ length: Math.max(0, 8 - gameState.players.length) }).map((_, i) => (
+              {/* {Array.from({ length: Math.max(0, 8 - gameState.players.length) }).map((_, i) => (
                 <div
                   key={`empty-${i}`}
                   className="flex items-center gap-3 p-3 rounded-lg border border-slate-800/50 bg-slate-950/30 border-dashed opacity-50"
@@ -150,7 +208,7 @@ export default function Queue() {
                   </div>
                   <div className="h-4 w-24 bg-slate-900 rounded" />
                 </div>
-              ))}
+              ))} */}
             </div>
           </CardContent>
         </Card>

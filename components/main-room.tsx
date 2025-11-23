@@ -5,21 +5,88 @@ import { Input } from './ui/input'
 import { Button } from './ui/button'
 import { Label } from './ui/label'
 import { Users, Plus } from 'lucide-react'
-import { useRouter } from 'next/navigation'
-export default function Lobby() {
-  const [playerName, setPlayerName] = useState("")
+import { createClient } from '@/lib/supabase/client'
+import { redirect } from 'next/navigation'
+export default function MainRoom() {
   const [roomCode, setRoomCode] = useState("")
-  const router = useRouter(); 
+  const [roomName, setRoomName] = useState("")
+  const [playerName, setPlayerName] = useState("")
+  const [errorMessage, setErrorMessage] = useState("")
+  const handleJoin = async () => {
+    setErrorMessage("")
+    const supabase = createClient()
+    // 1. Search for the room
+    const { data: roomData, error } = await supabase
+      .from('rooms')
+      .select('id')
+      .eq('id', roomCode)
+      .single();
 
-  const handleJoin = () => {
-    if (!playerName.trim() || !roomCode.trim()) return
-    // joinGame(playerName, roomCode)
+    if (error && error.code !== 'PGRST116') { // PGRST116 typically means 'No rows found', which we handle separately
+      console.error('Error searching for room:', error);
+      setErrorMessage('An error occurred while searching for the room.');
+      return;
+    }
+
+    // 2. Check if the room was found
+    if (!roomData) {
+      setErrorMessage('Room not found. Please check the code.');
+      return;
+    }
+
+    const roomId = roomData.id;
+
+    // 3. If found, insert a new member with a default balance of 1000
+    const { error: insertError } = await supabase
+      .from('room_members')
+      .insert({
+        room_id: roomId,
+        current_balance: 1000, // Explicitly set the current balance
+        player_name: playerName // Assuming playerName is available in scope
+      });
+
+    if (insertError) {
+      console.error('Error inserting room member:', insertError);
+      setErrorMessage('Failed to join the room. Please try again.');
+      return;
+    }
+
+    // 4. Redirect to the room page
+    redirect(`/protected/room/${roomId}`);
   }
 
-  const handleCreate = () => {
-    if (!playerName.trim()) return
-    // createGame(playerName)
-    router.push('/protected/room');
+  const handleCreate = async () => {
+    const supabase = createClient()
+    const { data, error } = await supabase
+      .from('rooms')
+      .insert({
+        status: 'LOBBY',
+        start_time: new Date().toISOString(),
+        name: roomName,
+        end_time: null
+      })
+      .select('id')
+      .single()
+    const roomId = data?.id;
+    // Join room
+    const { error: insertError } = await supabase
+      .from('room_members')
+      .insert({
+        room_id: roomId,
+        current_balance: 1000,
+        player_name: playerName
+      });
+    if (insertError) {
+      console.error('Error inserting room member:', insertError);
+      setErrorMessage('Failed to join the room after creation. Please try again.');
+      return;
+    }
+    if (error) {
+      console.error('Error creating room:', error)
+      return
+    }
+
+    redirect(`/protected/room/${data.id}`)
   }
 
   return (
@@ -33,7 +100,18 @@ export default function Lobby() {
               <CardDescription className="text-center">Enter your room code</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              
+
+              <div className="space-y-2">
+                <Label htmlFor="room-code">Player Name</Label>
+                <Input
+                  id="room-code"
+                  placeholder="Enter player name..."
+                  value={playerName}
+                  onChange={(e) => setPlayerName(e.target.value)}
+                  className="bg-slate-950 border-slate-800 text-lg py-3"
+                />
+              </div>
+
               <div className="space-y-2">
                 <Label htmlFor="room-code">Room Code</Label>
                 <Input
@@ -47,7 +125,7 @@ export default function Lobby() {
               <Button
                 onClick={handleJoin}
                 className="w-full py-3 text-lg font-bold bg-cyan-500 hover:bg-cyan-400 text-black transition-colors"
-                disabled={!playerName.trim() || !roomCode.trim()}
+                disabled={!roomCode.trim() && !playerName.trim()}
               >
                 <Users className="mr-2 h-5 w-5" />
                 JOIN ROOM
@@ -62,19 +140,19 @@ export default function Lobby() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="create-room-name">Room Name</Label>
+                <Label htmlFor="create-player-name">Room Name</Label>
                 <Input
-                  id="create-room-name"
+                  id="create-player-name"
                   placeholder="Enter your room name..."
-                  // value={roomCode}
-                  // onChange={(e) => setRoomCode(e.target.value)}
+                  value={roomName}
+                  onChange={(e) => setRoomName(e.target.value)}
                   className="bg-slate-950 border-slate-800 text-lg py-3"
                 />
               </div>
               <Button
                 onClick={handleCreate}
                 className="w-full py-3 text-lg font-bold bg-cyan-500 hover:bg-cyan-400 text-black transition-colors"
-                disabled={!playerName.trim()}
+                disabled={!roomName.trim()}
               >
                 <Plus className="mr-2 h-5 w-5" />
                 CREATE ROOM

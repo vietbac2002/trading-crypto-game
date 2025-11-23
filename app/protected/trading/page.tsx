@@ -131,7 +131,6 @@ export default function Dashboard() {
           <div className="flex-1">
             <OrderForm selectedCoinId={selectedCoinId} />
           </div>
-
          
         </div>
       </div>

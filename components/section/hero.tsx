@@ -32,7 +32,7 @@ export function Hero() {
                     className="animate-fade-in-up shadow-[0_0_15px_hsl(var(--primary))] transition-shadow hover:shadow-[0_0_25px_hsl(var(--primary))]"
                     style={{ animationDelay: '0.4s' }}
                 >
-                    <Link href="/dashboard">Get Started Now</Link>
+                    <Link href="/protected">Get Started Now</Link>
                 </Button>
             </div>
         </section>

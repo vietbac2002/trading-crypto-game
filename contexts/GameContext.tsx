@@ -51,7 +51,7 @@ const MOCK_BOT_NAMES = ["CryptoKing", "HodlMaster", "MoonBoy", "DiamondHands", "
 
 interface GameContextType {
   gameState: GameState
-  enterQueue: (playerName: string) => void
+  enterQueue: (playerName: string, roomCode?: string) => void
   setMatchDuration: (duration: number) => void
   startGame: () => void
   buyCoin: (coinId: string, amount: number) => void
@@ -179,7 +179,7 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     }
   }, [gameState.status])
 
-  const enterQueue = (playerName: string) => {
+  const enterQueue = (playerName: string, roomCode?: string) => {
     const player: Player = {
       id: "1",
       name: playerName || "Trader",
@@ -189,10 +189,12 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       initialBalance: INITIAL_BALANCE,
     }
 
+    const roomCodeToUse = roomCode || Math.random().toString(36).substring(2, 8).toUpperCase()
+
     setGameState((prev : any) => ({
       ...prev,
       status: "queue",
-      roomCode: Math.random().toString(36).substring(2, 8).toUpperCase(),
+      roomCode: roomCodeToUse,
       player: player,
       players: [player],
       timeLeft: ROUND_DURATION, // Default duration
